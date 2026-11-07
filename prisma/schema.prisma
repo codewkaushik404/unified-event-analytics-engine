@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EVENT_TYPE{
+  CLICK
+  VISIT
+}
+
+enum DEVICE{
+  MOBILE
+  DESKTOP
+  LAPTOP
+  UNKNOWN
+}
+
+model User{
+  id Int @id @default(autoincrement())
+  name String
+  email String @unique
+  google_id String @unique
+  avatar_url String? 
+  created_at DateTime @default(now())
+
+  applications App[]
+}
+
+model session{
+  sid String @id @db.VarChar(255)
+  sess Json 
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "IDX_session_expire")
+  @@map("session")
+}
+
+model App{
+  id Int @id @default(autoincrement())
+  name String
+  website_url String
+
+  owner_id Int 
+  user User @relation(fields: [owner_id], references: [id])
+
+  created_at DateTime @default(now())
+
+  api_keys ApiKey[]
+  events Event[]
+}
+
+model Event{
+  id Int @id @default(autoincrement())
+
+  app_id Int 
+  app App @relation(fields: [app_id], references: [id])
+
+  url String 
+  event_type EVENT_TYPE? 
+  event_name String
+
+  external_user_id String
+  referrer String
+
+  device DEVICE @default(DESKTOP)
+  browser String
+  ip_address String
+
+  metadata Json @default("{}")
+  created_at DateTime @default(now())
+}
+
+model ApiKey{
+  id Int @id @default(autoincrement())
+
+  app_id Int 
+  app App @relation(fields: [app_id], references: [id])
+
+  encrypted_key String 
+  iv String
+  auth_tag String
+  
+  is_active Boolean @default(true)
+
+  expires_at DateTime
+  created_at DateTime @default(now())
+  revoked_at DateTime? 
+
+  @@unique([encrypted_key, iv])
+}
