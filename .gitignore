@@ -1,0 +1,12 @@
+.env
+node_modules/
+devin/
+claude/
+agents/
+cursor/
+dist/
+
+/src/generated/prisma
+tsconfig.tsbuildinfo
+
+.vscode
