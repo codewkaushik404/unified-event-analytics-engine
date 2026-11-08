@@ -71,7 +71,7 @@ model Event{
   event_name String
 
   external_user_id String
-  referrer String
+  referrer String?
 
   device DEVICE @default(DESKTOP)
   browser String
@@ -90,6 +90,8 @@ model ApiKey{
   encrypted_key String 
   iv String
   auth_tag String
+
+  key_hash String @unique
   
   is_active Boolean @default(true)
 
