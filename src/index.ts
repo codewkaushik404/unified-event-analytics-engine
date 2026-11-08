@@ -1,6 +1,9 @@
 import express from "express";
 import config from "./config/config.js";
+
 import authRoutes from "./routes/auth.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
+
 import session from "express-session";
 import globalErrorHandler from "./utils/globalErrorHandler.js";
 import passport from "./config/passport.js";
@@ -40,6 +43,7 @@ app.get("/", (_req, res) => {
 })
 
 app.use("/api/auth", authRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 app.use(globalErrorHandler);
 

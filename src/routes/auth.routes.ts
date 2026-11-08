@@ -2,11 +2,12 @@ import { Router } from "express";
 import passport from "../config/passport.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import {generateApiKey, encryptApiKey, decryptApiKey} from "../utils/encryption.js";
-import verifyUser from "../middleware/isAuthenticated.js";
+import {verifyUser} from "../middleware/middleware.js";
 import {registerAppSchema, revokeApiSchema} from "../types/types.js";
 import ApiError from "../utils/ApiError.js";
 import prisma from "../config/prismaClient.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.post("/register", verifyUser, asyncHandler(async (req, res) => {
 
     const result = isValid.data;
     const apiKey: string = generateApiKey(32); //32 bytes or 64 char long api key
+    const key_hash: string = crypto.createHash("sha256").update(apiKey).digest("hex");
     const encryptionObj = encryptApiKey(apiKey);
 
     const expiresAt = new Date();
@@ -36,6 +38,7 @@ router.post("/register", verifyUser, asyncHandler(async (req, res) => {
                 app_id: app_data.id,
                 is_active: true,
                 expires_at: expiresAt,
+                key_hash,
                 ...encryptionObj
             }
         })
