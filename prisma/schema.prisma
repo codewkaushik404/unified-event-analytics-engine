@@ -14,90 +14,91 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum EVENT_TYPE{
+enum EVENT_TYPE {
   CLICK
   VISIT
 }
 
-enum DEVICE{
+enum DEVICE {
   MOBILE
   DESKTOP
-  LAPTOP
+  TABLET
   UNKNOWN
 }
 
-model User{
-  id Int @id @default(autoincrement())
-  name String
-  email String @unique
-  google_id String @unique
-  avatar_url String? 
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  google_id  String   @unique
+  avatar_url String?
   created_at DateTime @default(now())
 
   applications App[]
 }
 
-model session{
-  sid String @id @db.VarChar(255)
-  sess Json 
+model session {
+  sid    String   @id @db.VarChar(255)
+  sess   Json
   expire DateTime @db.Timestamp(6)
 
   @@index([expire], map: "IDX_session_expire")
   @@map("session")
 }
 
-model App{
-  id Int @id @default(autoincrement())
-  name String
+model App {
+  id          Int    @id @default(autoincrement())
+  name        String
   website_url String
 
-  owner_id Int 
-  user User @relation(fields: [owner_id], references: [id])
+  owner_id Int
+  user     User @relation(fields: [owner_id], references: [id])
 
   created_at DateTime @default(now())
 
   api_keys ApiKey[]
-  events Event[]
+  events   Event[]
 }
 
-model Event{
+model Event {
   id Int @id @default(autoincrement())
 
-  app_id Int 
-  app App @relation(fields: [app_id], references: [id])
+  app_id Int
+  app    App @relation(fields: [app_id], references: [id])
 
-  url String 
-  event_type EVENT_TYPE? 
+  event_type EVENT_TYPE?
   event_name String
 
-  external_user_id String
-  referrer String?
-
-  device DEVICE @default(DESKTOP)
-  browser String
+  url        String
+  referrer   String?
+  device     DEVICE   @default(DESKTOP)
+  browser    String
   ip_address String
+  timestamp  DateTime @default(now())
 
   metadata Json @default("{}")
-  created_at DateTime @default(now())
+
+  external_user_id String
+  created_at       DateTime @default(now())
 }
 
-model ApiKey{
+model ApiKey {
   id Int @id @default(autoincrement())
 
-  app_id Int 
-  app App @relation(fields: [app_id], references: [id])
+  app_id Int
+  app    App @relation(fields: [app_id], references: [id])
 
-  encrypted_key String 
-  iv String
-  auth_tag String
+  encrypted_key String
+  iv            String
+  auth_tag      String
 
   key_hash String @unique
-  
+
   is_active Boolean @default(true)
 
   expires_at DateTime
-  created_at DateTime @default(now())
-  revoked_at DateTime? 
+  created_at DateTime  @default(now())
+  revoked_at DateTime?
 
   @@unique([encrypted_key, iv])
 }
