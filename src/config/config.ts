@@ -23,7 +23,8 @@ const config = {
 
     DATABASE_URL: process.env.DATABASE_URL,
 
-    ENCRYPTION_KEY: process.env.ENCRYPTION_KEY
+    ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+    REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379"
 }
 
 export default config;
