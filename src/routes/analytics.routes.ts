@@ -7,8 +7,12 @@ import prisma from "../config/prismaClient.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { ANALYTICS_CACHE_TTL_SECONDS } from "../utils/cache_metadata.js";
 import redisClient from "../config/redisClient.js";
+import customRateLimiter from "../utils/customRateLimiter.js";
 
 const router = Router();
+const analyticsCollectRateLimiter = customRateLimiter(1, 300, "rl:analytics:collect:");
+const analyticsEventSummaryRateLimiter = customRateLimiter(1, 60, "rl:analytics:event-summary:");
+const analyticsUserStatsRateLimiter = customRateLimiter(1, 60, "rl:analytics:user-stats:");
 
 /**
  * @swagger
@@ -33,7 +37,7 @@ const router = Router();
  *         description: Internal server error
  */
 
-router.post("/collect", verifyApiKey, asyncHandler(async (req, res) => {
+router.post("/collect", analyticsCollectRateLimiter, verifyApiKey, asyncHandler(async (req, res) => {
     const isValid = eventSchema.safeParse(req.body);
     if(!isValid.success) throw new ApiError(400, "Invalid payload received", {errors: isValid.error.issues});
 
@@ -90,7 +94,7 @@ router.post("/collect", verifyApiKey, asyncHandler(async (req, res) => {
  *         description: Internal server error
  */
 
-router.post("/event-summary", verifyUser, asyncHandler(async (req, res) => {
+router.post("/event-summary", analyticsEventSummaryRateLimiter, verifyUser, asyncHandler(async (req, res) => {
 
     const isValid = eventSummarySchema.safeParse(req.body);
     if(!isValid.success) throw new ApiError(400, "Invalid payload received", {errors: isValid.error.issues});
@@ -190,7 +194,7 @@ router.post("/event-summary", verifyUser, asyncHandler(async (req, res) => {
  *         description: Internal server error
  */
 
-router.get("/user-stats", verifyUser, asyncHandler(async (req, res) => {
+router.get("/user-stats", analyticsUserStatsRateLimiter, verifyUser, asyncHandler(async (req, res) => {
     const isValid = userStatsSchema.safeParse({ userId: req.query.userId });
     if(!isValid.success) throw new ApiError(400, "Invalid payload received", {errors: isValid.error.issues});
 

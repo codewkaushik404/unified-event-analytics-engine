@@ -8,8 +8,11 @@ import ApiError from "../utils/ApiError.js";
 import prisma from "../config/prismaClient.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import crypto from "crypto";
+import customRateLimiter from "../utils/customRateLimiter.js";
 
 const router = Router();
+const authRateLimiter = customRateLimiter(15, 10, "rl:auth:");
+const apiKeyRateLimiter = customRateLimiter(15, 20, "rl:apiKey:");
 
 /**
  * @swagger
@@ -44,7 +47,7 @@ const router = Router();
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 
-router.post("/register", verifyUser, asyncHandler(async (req, res) => {
+router.post("/register", apiKeyRateLimiter, verifyUser, asyncHandler(async (req, res) => {
     
     const isValid = registerAppSchema.safeParse(req.body);
     if(!isValid.success) throw new ApiError(400, "Incorrect payload received", {errors: isValid.error.issues});
@@ -112,7 +115,7 @@ router.post("/register", verifyUser, asyncHandler(async (req, res) => {
  *         description: Not found
  */
 
-router.get("/api-key", verifyUser, asyncHandler(async (req, res) => {
+router.get("/api-key", apiKeyRateLimiter, verifyUser, asyncHandler(async (req, res) => {
     const appId = Number(req.query.app_id);
     if(!appId || isNaN(appId)) throw new ApiError(400, "Incorrect Application ID");
 
@@ -173,7 +176,7 @@ router.get("/api-key", verifyUser, asyncHandler(async (req, res) => {
  *         description: API key not found
  */
 
-router.post("/revoke", verifyUser, asyncHandler(async (req, res) => {
+router.post("/revoke", apiKeyRateLimiter, verifyUser, asyncHandler(async (req, res) => {
 
     const isValid = revokeApiSchema.safeParse(req.body);
     if(!isValid.success) throw new ApiError(400, "Invalid payload", {errors: isValid.error.flatten()});
@@ -235,7 +238,7 @@ router.get("/me", verifyUser, (req, res) => {
  *       302:
  *         description: Redirect to Google OAuth
  */
-router.get("/google", passport.authenticate("google", {
+router.get("/google", authRateLimiter, passport.authenticate("google", {
     scope: ["email", "profile"]
 }));
 
@@ -264,6 +267,7 @@ router.get("/google", passport.authenticate("google", {
  *         description: Internal server error
  */
 router.get("/google/callback", 
+    authRateLimiter,
     passport.authenticate("google", {
         session: true
     }), 
