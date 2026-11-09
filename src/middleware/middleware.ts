@@ -20,11 +20,19 @@ export const verifyApiKey = asyncHandler(async (req: Request, res: Response, nex
             key_hash: apiKeyHash,
             is_active: true,
             revoked_at: null,
+            expires_at: {gt: new Date()}
         },
+        include: {
+            app: {
+                select: {
+                    owner_id: true
+                }
+            }
+        }
     })
 
-    if(!obj || obj.expires_at <= new Date()) throw new ApiError(404, "No active Api-Key not found");
+    if(!obj) throw new ApiError(404, "No active Api-Key not found");
     
-    req.apiKeyApp = { app_id: obj.app_id };
+    req.apiKeyApp = { app_id: obj.app_id, owner_id: obj.app.owner_id };
     next();
 });
