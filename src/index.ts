@@ -55,10 +55,6 @@ app.use("/api/analytics", analyticsRoutes);
 
 app.use(globalErrorHandler);
 
-app.listen(config.PORT, async () => {
-    /*await redisClient.connect().catch((error) => {
-        console.error("Redis connection failed", error);
-        process.exit(1);
-    });*/
+app.listen(config.PORT, () => {
     console.log(`Server is running on :${config.PORT}`);
 })

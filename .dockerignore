@@ -1,0 +1,10 @@
+.git
+.vscode
+node_modules
+dist
+src/generated/prisma
+tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
+npm-debug.log*
