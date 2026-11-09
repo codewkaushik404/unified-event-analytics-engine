@@ -9,6 +9,9 @@ import globalErrorHandler from "./utils/globalErrorHandler.js";
 import passport from "./config/passport.js";
 import { Pool } from "pg";
 import connectPgSimple from "connect-pg-simple";
+import redisClient from "./config/redisClient.js";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./openapi/swagger.js";
 
 const app = express();
 
@@ -42,11 +45,20 @@ app.get("/", (_req, res) => {
     res.send("Server is healthy");
 })
 
+app.get("/api-docs.json", (_req, res) => {
+    res.json(swaggerSpec);
+});
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
 app.use(globalErrorHandler);
 
-app.listen(config.PORT, () => {
+app.listen(config.PORT, async () => {
+    /*await redisClient.connect().catch((error) => {
+        console.error("Redis connection failed", error);
+        process.exit(1);
+    });*/
     console.log(`Server is running on :${config.PORT}`);
 })

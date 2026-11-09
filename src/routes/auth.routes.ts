@@ -11,6 +11,39 @@ import crypto from "crypto";
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     security:
+ *       - sessionCookie: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterAppRequest'
+ *     responses:
+ *       201:
+ *         description: Application registered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
 router.post("/register", verifyUser, asyncHandler(async (req, res) => {
     
     const isValid = registerAppSchema.safeParse(req.body);
@@ -52,34 +85,52 @@ router.post("/register", verifyUser, asyncHandler(async (req, res) => {
 
 }));
 
+/**
+ * @swagger
+ * /api/auth/api-key:
+ *   get:
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: query
+ *         name: app_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ActiveApiKeysResponse'
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Not found
+ */
+
 router.get("/api-key", verifyUser, asyncHandler(async (req, res) => {
     const appId = Number(req.query.app_id);
     if(!appId || isNaN(appId)) throw new ApiError(400, "Incorrect Application ID");
 
     const userId = req.user!.id;
 
-    const application = await prisma.app.findFirst({
-        where:{
-            id: appId,
-            owner_id: userId
-        }
-    })
-
-    if(!application) throw new ApiError(404, "Application not found");
-
     const apiKeys = await prisma.apiKey.findMany({
         where: {
-            app_id: application.id
+            app_id: appId,
+            app: {
+                owner_id: userId
+            },
+            is_active: true,
+            revoked_at: null,
+            expires_at: {gt: new Date()}
         }
     });
 
     const result = apiKeys
-        .filter((key) => {
-            const is_expired: boolean = key.expires_at <= new Date();
-            const is_revoked: boolean = key.revoked_at !== null;
-
-            return (!is_expired && !is_revoked);
-        })
         .map((key) => {
             const {encrypted_key, iv, auth_tag, ...data} = key; 
             
@@ -90,8 +141,37 @@ router.get("/api-key", verifyUser, asyncHandler(async (req, res) => {
             }
         })
 
+    if(result.length === 0) throw new ApiError(404, "No active API keys found");
+
     return res.json(new ApiResponse(200, `Api Keys for App-ID-${appId} fetched successfully`, result));
 }));
+
+/**
+ * @swagger
+ * /api/auth/revoke:
+ *   post:
+ *     security:
+ *       - sessionCookie: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RevokeApiKeyRequest'
+ *     responses:
+ *       200:
+ *         description: API key revoked
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: API key not found
+ */
 
 router.post("/revoke", verifyUser, asyncHandler(async (req, res) => {
 
@@ -101,20 +181,16 @@ router.post("/revoke", verifyUser, asyncHandler(async (req, res) => {
     const data = isValid.data;
     const userId = req.user!.id;
 
-    const application = await prisma.app.findUnique({
-        where: {
-            id: data.app_id,
-            owner_id: userId
-        }
-    })
-
-    if(!application) throw new ApiError(404, "Application not found");
-
     const { count } = await prisma.apiKey.updateMany({
         where: {
             id: data.key_id,
             app_id: data.app_id,
-            is_active: true
+            app: {
+                owner_id: userId
+            },
+            is_active: true,
+            expires_at: {gt: new Date()},
+            revoked_at: null
         },
         data: {
             is_active: false,
@@ -127,14 +203,66 @@ router.post("/revoke", verifyUser, asyncHandler(async (req, res) => {
     return res.json(new ApiResponse(200, "Api-Key revoked successfully"));
 }));
 
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     security:
+ *       - sessionCookie: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserProfileResponse'
+ *       401:
+ *         description: Unauthorized
+ */
+
 router.get("/me", verifyUser, (req, res) => {
     return res.json(new ApiResponse(200, "User details fetched successfully", req.user));
 });
 
+/**
+ * @swagger
+ * /api/auth/google:
+ *   get:
+ *     summary: Start Google OAuth login
+ *     description: Redirects the browser to Google for email and profile authorization.
+ *     tags: [Authentication and Applications]
+ *     responses:
+ *       302:
+ *         description: Redirect to Google OAuth
+ */
 router.get("/google", passport.authenticate("google", {
     scope: ["email", "profile"]
 }));
 
+/**
+ * @swagger
+ * /api/auth/google/callback:
+ *   get:
+ *     summary: Complete Google OAuth login
+ *     description: Google redirects here after authorization. On success, establishes a session and returns the sid cookie.
+ *     tags: [Authentication and Applications]
+ *     responses:
+ *       201:
+ *         description: User logged in successfully; session cookie is set
+ *         headers:
+ *           Set-Cookie:
+ *             schema:
+ *               type: string
+ *             description: Session cookie named sid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       401:
+ *         description: Google authentication failed
+ *       500:
+ *         description: Internal server error
+ */
 router.get("/google/callback", 
     passport.authenticate("google", {
         session: true
@@ -147,6 +275,25 @@ router.get("/google/callback",
         })
     }
 );
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   delete:
+ *     security:
+ *       - sessionCookie: []
+ *     responses:
+ *       200:
+ *         description: Successfully logged out
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Session termination failed
+ */
 
 router.delete("/logout", verifyUser, (req, res, next) => {
 
@@ -161,6 +308,7 @@ router.delete("/logout", verifyUser, (req, res, next) => {
         })
     })
 });
+
 
 
 export default router;
