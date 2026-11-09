@@ -45,5 +45,5 @@
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
   },
-  "exclude": ["prisma.config.ts", "dist", "node_modules"]
+  "exclude": ["prisma.config.ts", "vitest.config.ts", "tests", "dist", "node_modules"]
 }
