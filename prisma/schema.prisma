@@ -58,6 +58,8 @@ model App {
 
   api_keys ApiKey[]
   events   Event[]
+
+  @@index([owner_id])
 }
 
 model Event {
@@ -80,6 +82,9 @@ model Event {
 
   external_user_id String
   created_at       DateTime @default(now())
+
+  @@index([app_id, event_name, timestamp])
+  @@index([app_id, external_user_id])
 }
 
 model ApiKey {
@@ -101,4 +106,6 @@ model ApiKey {
   revoked_at DateTime?
 
   @@unique([encrypted_key, iv])
+  @@index([app_id])
+  @@index([app_id, is_active, expires_at])
 }
